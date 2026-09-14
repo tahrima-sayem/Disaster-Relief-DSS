@@ -15,6 +15,13 @@
   header .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #9fc7c2; margin-bottom: 6px; }
   header h1 { margin: 0 0 4px; font-size: 24px; font-weight: 600; }
   header p { margin: 0; font-size: 13px; color: #c7d9d6; max-width: 680px; line-height: 1.5; }
+  nav.topnav { display: flex; gap: 8px; margin-top: 16px; }
+  nav.topnav a {
+    color: #c7d9d6; text-decoration: none; font-size: 12.5px; font-weight: 600;
+    padding: 6px 14px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.25);
+  }
+  nav.topnav a.active { background: #f2efe6; color: #163f3d; border-color: #f2efe6; }
+  nav.topnav a:not(.active):hover { border-color: rgba(255,255,255,0.6); }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 24px; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; margin-bottom: 18px; }
   .panel h2 { font-size: 13px; margin: 0 0 12px; color: var(--teal-deep); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -47,6 +54,10 @@
     <div class="eyebrow">Disaster Relief Data Warehouse · Decision Support</div>
     <h1>District Relief Prioritization</h1>
     <p>Ranks districts by relief priority using four warehouse-derived factors: impact severity, aid coverage gap, shelter overcrowding risk, and baseline vulnerability. Adjust the weights below to see how the ranking responds — this is a transparent, rule-based score, not a black box.</p>
+    <nav class="topnav">
+      <a href="dashboard.html">Dashboard</a>
+      <a href="dss.html" class="active">Decision Support</a>
+    </nav>
   </div>
 </header>
 
