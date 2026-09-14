@@ -1,0 +1,7 @@
+resource_type_key,category,unit_of_measure
+1,Food,kg
+2,Drinking Water,litre
+3,Medicine,packet
+4,Blanket,unit
+5,Tent,unit
+6,Cash Assistance,BDT

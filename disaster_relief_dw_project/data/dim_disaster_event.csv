@@ -1,0 +1,9 @@
+disaster_key,event_name,disaster_type,severity,start_date,end_date,is_real_event
+1,Cyclone Sidr,Cyclone,Catastrophic,2007-11-15,2007-11-16,True
+2,Cyclone Aila,Cyclone,High,2009-05-25,2009-05-26,True
+3,2017 Sunamganj Flash Flood,Flood,High,2017-04-01,2017-04-20,True
+4,2020 South Asian Floods (Bangladesh),Flood,Catastrophic,2020-07-01,2020-08-15,True
+5,Cyclone Amphan,Cyclone,High,2020-05-20,2020-05-21,True
+6,2022 Sylhet-Sunamganj Flood,Flood,Catastrophic,2022-05-15,2022-06-30,True
+7,Cyclone Mocha,Cyclone,Medium,2023-05-14,2023-05-15,True
+8,August 2024 Bangladesh Floods,Flood,Catastrophic,2024-08-21,2024-09-10,True

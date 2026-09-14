@@ -1,0 +1,13 @@
+donor_key,donor_type,country
+1,Individual,Bangladesh
+2,Individual,UK
+3,Individual,USA
+4,Individual,UAE
+5,Corporate,Bangladesh
+6,Corporate,Japan
+7,Corporate,Singapore
+8,Government,Bangladesh
+9,Government,India
+10,Government,Japan
+11,Government,USA
+12,International,International

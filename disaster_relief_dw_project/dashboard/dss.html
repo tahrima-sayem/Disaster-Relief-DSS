@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Disaster Relief DSS — District Prioritization</title>
+<style>
+  :root {
+    --ink: #1c2b2a; --paper: #f2efe6; --panel: #ffffff;
+    --teal: #2a6f6b; --teal-deep: #163f3d; --rust: #a8532f; --ochre: #c99a3f;
+    --sage: #7a9b76; --line: #d8d3c4; --muted: #6b6a5f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  header { background: var(--teal-deep); color: #f2efe6; padding: 28px 32px 22px; }
+  header .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #9fc7c2; margin-bottom: 6px; }
+  header h1 { margin: 0 0 4px; font-size: 24px; font-weight: 600; }
+  header p { margin: 0; font-size: 13px; color: #c7d9d6; max-width: 680px; line-height: 1.5; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 24px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; margin-bottom: 18px; }
+  .panel h2 { font-size: 13px; margin: 0 0 12px; color: var(--teal-deep); text-transform: uppercase; letter-spacing: 0.05em; }
+  .weights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .weight-item label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .weight-item .val { font-weight: 700; color: var(--teal-deep); font-variant-numeric: tabular-nums; }
+  .weight-item input[type=range] { width: 100%; accent-color: var(--teal); }
+  .weight-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; padding: 8px 10px; background: var(--teal-deep); color: #f2efe6; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  th.num, td.num { text-align: right; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:hover td { background: #f7f5ee; }
+  .rank { font-weight: 700; color: var(--teal-deep); width: 24px; }
+  .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar-bg { flex: 1; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 60px; }
+  .score-bar-fill { height: 100%; border-radius: 4px; }
+  .score-num { font-weight: 700; font-variant-numeric: tabular-nums; width: 32px; text-align: right; }
+  .rationale { font-size: 11px; color: var(--muted); line-height: 1.45; max-width: 260px; }
+  .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 700; margin-right: 4px; }
+  .badge.high { background: #fbe9e2; color: var(--rust); }
+  .badge.med { background: #fbf1dc; color: #8a6a1f; }
+  footer { text-align: center; font-size: 11px; color: var(--muted); padding: 6px 24px 30px; max-width: 1080px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap" style="padding:0;">
+    <div class="eyebrow">Disaster Relief Data Warehouse · Decision Support</div>
+    <h1>District Relief Prioritization</h1>
+    <p>Ranks districts by relief priority using four warehouse-derived factors: impact severity, aid coverage gap, shelter overcrowding risk, and baseline vulnerability. Adjust the weights below to see how the ranking responds — this is a transparent, rule-based score, not a black box.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="panel">
+    <h2>Priority Weights</h2>
+    <div class="weights" id="weights"></div>
+    <p class="weight-note">Priority Score = (Impact × w₁) + (Aid Gap × w₂) + (Shelter Risk × w₃) + (Vulnerability × w₄), each factor normalized 0–1 across districts (shelter risk can exceed 1.0 when occupancy exceeds capacity). Recomputed live in your browser as you move the sliders — no server round-trip.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Ranked Districts</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>District</th><th>Division</th>
+          <th class="num">Deaths</th><th class="num">Displaced</th>
+          <th class="num">Aid Received (BDT)</th><th class="num">Shelter Occ.</th>
+          <th>Priority Score</th><th>Why</th>
+        </tr>
+      </thead>
+      <tbody id="rankTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>
+  Scores are computed from the same disaster impact, aid distribution, resource deployment, and vulnerability data used elsewhere in this project. Underlying figures for aid, deployment, and shelter occupancy are simulated for this MSc course project; disaster events and geography are real.
+</footer>
+
+<script>
+const DISTRICTS = [{"district": "Habiganj", "division": "Sylhet", "total_deaths": 212, "total_displaced": 304776, "total_economic_loss": "1180204765", "total_aid_delivered": "11301639", "peak_occupancy_pct": "123.3", "vulnerability_index": "8.32", "impact_score": "1.000", "aid_gap_score": "1.000", "shelter_risk_score": "1.233", "vulnerability_score": "0.832"}, {"district": "Sylhet", "division": "Sylhet", "total_deaths": 189, "total_displaced": 250819, "total_economic_loss": "1241459283", "total_aid_delivered": "12667998", "peak_occupancy_pct": "123.0", "vulnerability_index": "6.01", "impact_score": "0.991", "aid_gap_score": "0.870", "shelter_risk_score": "1.230", "vulnerability_score": "0.601"}, {"district": "Sunamganj", "division": "Sylhet", "total_deaths": 193, "total_displaced": 262634, "total_economic_loss": "1115620289", "total_aid_delivered": "14316838", "peak_occupancy_pct": "117.0", "vulnerability_index": "6.51", "impact_score": "0.925", "aid_gap_score": "0.700", "shelter_risk_score": "1.170", "vulnerability_score": "0.651"}, {"district": "Kurigram", "division": "Rangpur", "total_deaths": 158, "total_displaced": 231079, "total_economic_loss": "894650812", "total_aid_delivered": "10702102", "peak_occupancy_pct": "112.0", "vulnerability_index": "4.77", "impact_score": "0.753", "aid_gap_score": "0.775", "shelter_risk_score": "1.120", "vulnerability_score": "0.477"}, {"district": "Moulvibazar", "division": "Sylhet", "total_deaths": 170, "total_displaced": 242602, "total_economic_loss": "843248331", "total_aid_delivered": "11560762", "peak_occupancy_pct": "117.0", "vulnerability_index": "5.10", "impact_score": "0.736", "aid_gap_score": "0.691", "shelter_risk_score": "1.170", "vulnerability_score": "0.510"}, {"district": "Tangail", "division": "Dhaka", "total_deaths": 143, "total_displaced": 269710, "total_economic_loss": "823233983", "total_aid_delivered": "9671644", "peak_occupancy_pct": "103.4", "vulnerability_index": "9.33", "impact_score": "0.724", "aid_gap_score": "0.834", "shelter_risk_score": "1.034", "vulnerability_score": "0.933"}, {"district": "Lalmonirhat", "division": "Rangpur", "total_deaths": 146, "total_displaced": 206175, "total_economic_loss": "837683002", "total_aid_delivered": "10527122", "peak_occupancy_pct": "94.3", "vulnerability_index": "5.61", "impact_score": "0.697", "aid_gap_score": "0.724", "shelter_risk_score": "0.943", "vulnerability_score": "0.561"}, {"district": "Bogura", "division": "Rajshahi", "total_deaths": 141, "total_displaced": 230999, "total_economic_loss": "667596310", "total_aid_delivered": "10357948", "peak_occupancy_pct": "113.1", "vulnerability_index": "6.38", "impact_score": "0.607", "aid_gap_score": "0.630", "shelter_risk_score": "1.131", "vulnerability_score": "0.638"}, {"district": "Jamalpur", "division": "Mymensingh", "total_deaths": 122, "total_displaced": 213496, "total_economic_loss": "702236762", "total_aid_delivered": "7504422", "peak_occupancy_pct": "117.7", "vulnerability_index": "5.67", "impact_score": "0.605", "aid_gap_score": "0.912", "shelter_risk_score": "1.177", "vulnerability_score": "0.567"}, {"district": "Chattogram", "division": "Chattogram", "total_deaths": 94, "total_displaced": 96053, "total_economic_loss": "410705860", "total_aid_delivered": "7632982", "peak_occupancy_pct": "120.7", "vulnerability_index": "7.29", "impact_score": "0.344", "aid_gap_score": "0.469", "shelter_risk_score": "1.207", "vulnerability_score": "0.729"}, {"district": "Noakhali", "division": "Chattogram", "total_deaths": 84, "total_displaced": 83253, "total_economic_loss": "425398174", "total_aid_delivered": "6748456", "peak_occupancy_pct": "96.1", "vulnerability_index": "8.76", "impact_score": "0.339", "aid_gap_score": "0.536", "shelter_risk_score": "0.961", "vulnerability_score": "0.876"}, {"district": "Feni", "division": "Chattogram", "total_deaths": 80, "total_displaced": 74785, "total_economic_loss": "418729510", "total_aid_delivered": "5847308", "peak_occupancy_pct": "96.5", "vulnerability_index": "4.32", "impact_score": "0.328", "aid_gap_score": "0.613", "shelter_risk_score": "0.965", "vulnerability_score": "0.432"}, {"district": "Cumilla", "division": "Chattogram", "total_deaths": 73, "total_displaced": 85371, "total_economic_loss": "359976898", "total_aid_delivered": "7049817", "peak_occupancy_pct": "92.9", "vulnerability_index": "4.86", "impact_score": "0.295", "aid_gap_score": "0.430", "shelter_risk_score": "0.929", "vulnerability_score": "0.486"}, {"district": "Bagerhat", "division": "Khulna", "total_deaths": 22, "total_displaced": 28796, "total_economic_loss": "97882500", "total_aid_delivered": "5766890", "peak_occupancy_pct": "114.0", "vulnerability_index": "5.00", "impact_score": "0.073", "aid_gap_score": "0.075", "shelter_risk_score": "1.140", "vulnerability_score": "0.500"}, {"district": "Bhola", "division": "Barisal", "total_deaths": 10, "total_displaced": 20743, "total_economic_loss": "83330162", "total_aid_delivered": "3859888", "peak_occupancy_pct": "107.1", "vulnerability_index": "9.23", "impact_score": "0.053", "aid_gap_score": "0.103", "shelter_risk_score": "1.071", "vulnerability_score": "0.923"}, {"district": "Patuakhali", "division": "Barisal", "total_deaths": 12, "total_displaced": 12979, "total_economic_loss": "80230042", "total_aid_delivered": "4752504", "peak_occupancy_pct": "111.7", "vulnerability_index": "8.03", "impact_score": "0.047", "aid_gap_score": "0.048", "shelter_risk_score": "1.117", "vulnerability_score": "0.803"}, {"district": "Satkhira", "division": "Khulna", "total_deaths": 13, "total_displaced": 5791, "total_economic_loss": "78126685", "total_aid_delivered": "2604989", "peak_occupancy_pct": "104.0", "vulnerability_index": "5.17", "impact_score": "0.042", "aid_gap_score": "0.160", "shelter_risk_score": "1.040", "vulnerability_score": "0.517"}, {"district": "Khulna", "division": "Khulna", "total_deaths": 11, "total_displaced": 10087, "total_economic_loss": "65237277", "total_aid_delivered": "2893398", "peak_occupancy_pct": "100.5", "vulnerability_index": "8.58", "impact_score": "0.036", "aid_gap_score": "0.105", "shelter_risk_score": "1.005", "vulnerability_score": "0.858"}, {"district": "Barisal", "division": "Barisal", "total_deaths": 8, "total_displaced": 12763, "total_economic_loss": "45939900", "total_aid_delivered": "4253092", "peak_occupancy_pct": "96.5", "vulnerability_index": "6.06", "impact_score": "0.024", "aid_gap_score": "0.000", "shelter_risk_score": "0.965", "vulnerability_score": "0.606"}, {"district": "Cox's Bazar", "division": "Chattogram", "total_deaths": 6, "total_displaced": 4568, "total_economic_loss": "15388536", "total_aid_delivered": "957462", "peak_occupancy_pct": "113.1", "vulnerability_index": "4.86", "impact_score": "0.000", "aid_gap_score": "0.085", "shelter_risk_score": "1.131", "vulnerability_score": "0.486"}];
+
+const WEIGHT_DEFS = [
+  { key: 'impact_score', label: 'Impact Severity', color: '#a8532f', default: 40 },
+  { key: 'aid_gap_score', label: 'Aid Coverage Gap', color: '#c99a3f', default: 30 },
+  { key: 'shelter_risk_score', label: 'Shelter Overcrowding', color: '#2a6f6b', default: 20 },
+  { key: 'vulnerability_score', label: 'Baseline Vulnerability', color: '#7a9b76', default: 10 },
+];
+
+const weightsContainer = document.getElementById('weights');
+WEIGHT_DEFS.forEach(w => {
+  const div = document.createElement('div');
+  div.className = 'weight-item';
+  div.innerHTML = `
+    <label>${w.label} <span class="val" id="val-${w.key}">${w.default}%</span></label>
+    <input type="range" min="0" max="100" value="${w.default}" id="slider-${w.key}" data-key="${w.key}">
+  `;
+  weightsContainer.appendChild(div);
+});
+
+function currentWeights() {
+  const raw = WEIGHT_DEFS.map(w => parseFloat(document.getElementById(`slider-${w.key}`).value));
+  const sum = raw.reduce((a, b) => a + b, 0) || 1;
+  return WEIGHT_DEFS.reduce((acc, w, i) => { acc[w.key] = raw[i] / sum; return acc; }, {});
+}
+
+function rationale(d, weights) {
+  const parts = [];
+  if (d.impact_score >= 0.6) parts.push(`severe impact (${d.total_deaths} deaths, ${Number(d.total_displaced).toLocaleString()} displaced)`);
+  if (d.aid_gap_score >= 0.6) parts.push('high need relative to aid received so far');
+  if (d.shelter_risk_score > 1.0) parts.push(`shelters over capacity (${d.peak_occupancy_pct}% peak occupancy)`);
+  else if (d.shelter_risk_score >= 0.9) parts.push('shelters near capacity');
+  if (d.vulnerability_score >= 0.8) parts.push('high baseline vulnerability');
+  if (parts.length === 0) parts.push('relatively low need across all factors');
+  return parts.join('; ');
+}
+
+function render() {
+  const weights = currentWeights();
+  WEIGHT_DEFS.forEach(w => {
+    document.getElementById(`val-${w.key}`).textContent = Math.round(weights[w.key] * 100) + '%';
+  });
+
+  const scored = DISTRICTS.map(d => {
+    const score = WEIGHT_DEFS.reduce((sum, w) => sum + parseFloat(d[w.key]) * weights[w.key], 0);
+    return { ...d, priority: score };
+  }).sort((a, b) => b.priority - a.priority);
+
+  const maxScore = Math.max(...scored.map(d => d.priority)) || 1;
+
+  document.getElementById('rankTable').innerHTML = scored.map((d, i) => {
+    const pct = Math.min(100, (d.priority / maxScore) * 100);
+    const color = i < 3 ? '#a8532f' : i < 8 ? '#c99a3f' : '#2a6f6b';
+    const badges = [];
+    if (d.shelter_risk_score > 1.0) badges.push('<span class="badge high">Over capacity</span>');
+    if (d.aid_gap_score >= 0.7) badges.push('<span class="badge med">Aid gap</span>');
+    return `
+      <tr>
+        <td class="rank">${i + 1}</td>
+        <td>${d.district}</td>
+        <td>${d.division}</td>
+        <td class="num">${d.total_deaths}</td>
+        <td class="num">${Number(d.total_displaced).toLocaleString()}</td>
+        <td class="num">${Number(d.total_aid_delivered).toLocaleString()}</td>
+        <td class="num">${d.peak_occupancy_pct}%</td>
+        <td>
+          <div class="score-bar-wrap">
+            <div class="score-bar-bg"><div class="score-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            <div class="score-num">${d.priority.toFixed(2)}</div>
+          </div>
+          ${badges.join('')}
+        </td>
+        <td class="rationale">${rationale(d, weights)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+WEIGHT_DEFS.forEach(w => {
+  document.getElementById(`slider-${w.key}`).addEventListener('input', render);
+});
+render();
+</script>
+</body>
+</html>

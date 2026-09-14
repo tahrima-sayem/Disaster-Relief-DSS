@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Disaster Relief Data Warehouse — Bangladesh</title>
+<style>
+  :root {
+    --ink: #1c2b2a;
+    --paper: #f2efe6;
+    --panel: #ffffff;
+    --teal: #2a6f6b;
+    --teal-deep: #163f3d;
+    --rust: #a8532f;
+    --ochre: #c99a3f;
+    --sage: #7a9b76;
+    --slate: #5c6b73;
+    --line: #d8d3c4;
+    --muted: #6b6a5f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    background: var(--teal-deep);
+    color: #f2efe6;
+    padding: 28px 32px 22px;
+  }
+  header .eyebrow {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #9fc7c2;
+    margin-bottom: 6px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  header p { margin: 0; font-size: 13.5px; color: #c7d9d6; max-width: 640px; line-height: 1.5; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--line);
+    margin: -14px auto 28px;
+    border: 1px solid var(--line);
+    max-width: 1132px;
+  }
+  .stat { background: var(--panel); padding: 16px 18px; }
+  .stat .num { font-size: 22px; font-weight: 700; color: var(--teal-deep); font-variant-numeric: tabular-nums; }
+  .stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+  .grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; margin-bottom: 18px; }
+  .grid.thirds { grid-template-columns: 1fr 1fr 1fr; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 20px 14px; }
+  .panel h2 { font-size: 13px; margin: 0 0 4px; color: var(--teal-deep); text-transform: uppercase; letter-spacing: 0.05em; }
+  .panel .sub { font-size: 11.5px; color: var(--muted); margin: 0 0 12px; }
+  .chart-box svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .legend { display: flex; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+  .legend .item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  .list-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .list-row:last-child { border-bottom: none; }
+  .list-row .name { color: var(--ink); }
+  .list-row .pct-badge { background: #fbe9e2; color: var(--rust); font-weight: 700; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-variant-numeric: tabular-nums; }
+  footer { text-align: center; font-size: 11px; color: var(--muted); padding: 10px 24px 32px; max-width: 1180px; margin: 0 auto; }
+  .bar-label { font-size: 10px; fill: var(--muted); }
+  .value-label { font-size: 10px; fill: var(--ink); font-weight: 600; }
+  @media (max-width: 820px) {
+    .grid, .grid.thirds { grid-template-columns: 1fr; }
+    .summary-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow">Disaster Relief Data Warehouse · Presentation Layer</div>
+    <h1>Bangladesh Disaster Relief Analytics</h1>
+    <p>Eight real disaster events (2007–2024), with simulated operational data for aid distribution, resource deployment, and donations. Built on a PostgreSQL fact constellation warehouse.</p>
+  </div>
+</header>
+
+<div class="summary-strip" id="summary-strip"></div>
+
+<div class="wrap">
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Yearly Disaster Impact</h2>
+      <p class="sub">Roll-up: people displaced (bars) and deaths (line), by year</p>
+      <div class="chart-box" id="yearlyChart"></div>
+    </div>
+    <div class="panel">
+      <h2>Impact by Disaster Type</h2>
+      <p class="sub">Floods vs. cyclones: events and human toll</p>
+      <div class="chart-box" id="typeChart"></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Top Districts by Economic Loss</h2>
+      <p class="sub">Cumulative loss (million BDT), all events</p>
+      <div class="chart-box" id="districtChart"></div>
+    </div>
+    <div class="panel">
+      <h2>Aid Delivery Cost by Organization</h2>
+      <p class="sub">Total delivery cost (million BDT)</p>
+      <div class="chart-box" id="orgChart"></div>
+    </div>
+  </div>
+
+  <div class="grid thirds">
+    <div class="panel">
+      <h2>Resource Mix</h2>
+      <p class="sub">Deliveries by resource category</p>
+      <div class="chart-box" id="resourceChart"></div>
+    </div>
+    <div class="panel">
+      <h2>Shelter Overcrowding</h2>
+      <p class="sub">Peak occupancy vs. rated capacity</p>
+      <div id="shelterList"></div>
+    </div>
+    <div class="panel">
+      <h2>Donations by Event</h2>
+      <p class="sub">Cash vs. in-kind (million BDT)</p>
+      <div class="chart-box" id="donationChart"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Disaster events and geography are real (Bangladesh divisions/districts, EM-DAT/ReliefWeb-documented events). Operational figures (aid, deployment, donations, shelter occupancy) are simulated for this MSc course project and are not actual reported statistics.
+</footer>
+
+<script>
+const DATA = {"by_disaster_type": [{"disaster_type": "Cyclone", "num_events": 4, "deaths": 85, "displaced": 100226}, {"disaster_type": "Flood", "num_events": 4, "deaths": 1802, "displaced": 2547253}], "yearly_trend": [{"year": 2007, "deaths": 35, "displaced": 69211, "loss_million_bdt": "273.2"}, {"year": 2009, "deaths": 19, "displaced": 9974, "loss_million_bdt": "104.0"}, {"year": 2017, "deaths": 91, "displaced": 125176, "loss_million_bdt": "666.5"}, {"year": 2020, "deaths": 732, "displaced": 1163433, "loss_million_bdt": "3999.0"}, {"year": 2022, "deaths": 673, "displaced": 935655, "loss_million_bdt": "3714.0"}, {"year": 2023, "deaths": 9, "displaced": 9067, "loss_million_bdt": "23.5"}, {"year": 2024, "deaths": 328, "displaced": 334963, "loss_million_bdt": "1606.7"}], "top_districts_loss": [{"district": "Sylhet", "loss_million_bdt": "1241.5"}, {"district": "Habiganj", "loss_million_bdt": "1180.2"}, {"district": "Sunamganj", "loss_million_bdt": "1115.6"}, {"district": "Kurigram", "loss_million_bdt": "894.7"}, {"district": "Moulvibazar", "loss_million_bdt": "843.2"}, {"district": "Lalmonirhat", "loss_million_bdt": "837.7"}, {"district": "Tangail", "loss_million_bdt": "823.2"}, {"district": "Jamalpur", "loss_million_bdt": "702.2"}], "aid_by_org": [{"org_name": "UNICEF Bangladesh", "cost_million_bdt": "23.06"}, {"org_name": "Bangladesh Red Crescent Society", "cost_million_bdt": "22.92"}, {"org_name": "World Food Programme", "cost_million_bdt": "21.68"}, {"org_name": "Cyclone Preparedness Programme (CPP)", "cost_million_bdt": "21.63"}, {"org_name": "BRAC", "cost_million_bdt": "21.55"}, {"org_name": "Bangladesh Armed Forces (Relief Wing)", "cost_million_bdt": "21.13"}, {"org_name": "Department of Disaster Management (DDM)", "cost_million_bdt": "19.02"}], "resource_distribution": [{"category": "Drinking Water", "num_deliveries": 677}, {"category": "Food", "num_deliveries": 667}, {"category": "Cash Assistance", "num_deliveries": 665}, {"category": "Blanket", "num_deliveries": 650}, {"category": "Medicine", "num_deliveries": 643}, {"category": "Tent", "num_deliveries": 641}], "shelter_overcapacity": [{"shelter": "Habiganj Community Hall #3 (Habiganj)", "capacity": 150, "peak_occupancy": 185, "pct": "123"}, {"shelter": "Habiganj Cyclone Shelter #1 (Habiganj)", "capacity": 750, "peak_occupancy": 925, "pct": "123"}, {"shelter": "Sylhet Primary School #2 (Sylhet)", "capacity": 300, "peak_occupancy": 369, "pct": "123"}, {"shelter": "Chattogram Primary School #2 (Chattogram)", "capacity": 150, "peak_occupancy": 181, "pct": "121"}, {"shelter": "Jamalpur Cyclone Shelter #1 (Jamalpur)", "capacity": 1000, "peak_occupancy": 1177, "pct": "118"}, {"shelter": "Moulvibazar Cyclone Shelter #1 (Moulvibazar)", "capacity": 300, "peak_occupancy": 351, "pct": "117"}, {"shelter": "Sunamganj Flood Shelter #4 (Sunamganj)", "capacity": 200, "peak_occupancy": 234, "pct": "117"}, {"shelter": "Sunamganj Cyclone Shelter #1 (Sunamganj)", "capacity": 200, "peak_occupancy": 232, "pct": "116"}], "donations_by_event": [{"event_name": "August 2024 Bangladesh Floods", "cash_million_bdt": "21.24", "in_kind_million_bdt": "13.59"}, {"event_name": "2020 South Asian Floods (Bangladesh)", "cash_million_bdt": "21.21", "in_kind_million_bdt": "13.68"}, {"event_name": "Cyclone Sidr", "cash_million_bdt": "19.75", "in_kind_million_bdt": "15.02"}, {"event_name": "2022 Sylhet-Sunamganj Flood", "cash_million_bdt": "17.50", "in_kind_million_bdt": "18.07"}, {"event_name": "Cyclone Aila", "cash_million_bdt": "5.21", "in_kind_million_bdt": "2.04"}, {"event_name": "2017 Sunamganj Flash Flood", "cash_million_bdt": "4.06", "in_kind_million_bdt": "2.94"}, {"event_name": "Cyclone Amphan", "cash_million_bdt": "3.87", "in_kind_million_bdt": "3.40"}, {"event_name": "Cyclone Mocha", "cash_million_bdt": "1.54", "in_kind_million_bdt": "1.01"}], "summary": {"total_events": 8, "total_deaths": 1887, "total_displaced": 2647479, "total_loss_billion_bdt": "10.39", "total_aid_cost_million_bdt": "151.0", "total_shelters": 61}};
+const COLORS = { teal:'#2a6f6b', tealDeep:'#163f3d', rust:'#a8532f', ochre:'#c99a3f', sage:'#7a9b76', slate:'#5c6b73', extra:'#8b6f47' };
+
+function svg(tag, attrs, children) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  (children || []).forEach(c => el.appendChild(c));
+  return el;
+}
+function text(x, y, str, cls, extra) {
+  const t = svg('text', Object.assign({ x, y, class: cls || '' }, extra || {}));
+  t.textContent = str;
+  return t;
+}
+function legend(container, items) {
+  const wrap = document.createElement('div');
+  wrap.className = 'legend';
+  items.forEach(([label, color]) => {
+    const item = document.createElement('div');
+    item.className = 'item';
+    item.innerHTML = `<span class="swatch" style="background:${color}"></span>${label}`;
+    wrap.appendChild(item);
+  });
+  container.appendChild(wrap);
+}
+
+function horizontalBar(containerId, categories, values, color, opts) {
+  opts = opts || {};
+  const container = document.getElementById(containerId);
+  const W = 520, rowH = 30, padL = opts.padL || 150, padR = 55, padT = 8;
+  const H = padT + categories.length * rowH + 10;
+  const maxVal = Math.max(...values) * 1.08;
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}` });
+  categories.forEach((cat, i) => {
+    const y = padT + i * rowH;
+    const barW = (values[i] / maxVal) * (W - padL - padR);
+    root.appendChild(text(padL - 8, y + rowH * 0.62, cat, 'bar-label', { 'text-anchor': 'end' }));
+    root.appendChild(svg('rect', { x: padL, y: y + 4, width: Math.max(barW, 1), height: rowH - 12, rx: 3, fill: color }));
+    root.appendChild(text(padL + barW + 6, y + rowH * 0.62, opts.fmt ? opts.fmt(values[i]) : values[i], 'value-label'));
+  });
+  container.appendChild(root);
+}
+
+function groupedBar(containerId, categories, series) {
+  const container = document.getElementById(containerId);
+  legend(container, series.map(s => [s.name, s.color]));
+  const W = 460, H = 210, padL = 34, padR = 10, padT = 10, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxVal = Math.max(...series.flatMap(s => s.data)) * 1.15;
+  const groupW = plotW / categories.length;
+  const barW = groupW / (series.length + 1);
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}` });
+  for (let g = 0; g <= 3; g++) {
+    const y = padT + plotH - (g / 3) * plotH;
+    root.appendChild(svg('line', { x1: padL, x2: W - padR, y1: y, y2: y, stroke: '#d8d3c4', 'stroke-width': 1 }));
+  }
+  categories.forEach((cat, i) => {
+    const gx = padL + i * groupW;
+    series.forEach((s, si) => {
+      const val = s.data[i];
+      const h = (val / maxVal) * plotH;
+      const x = gx + (si + 0.5) * barW;
+      root.appendChild(svg('rect', { x, y: padT + plotH - h, width: barW * 0.82, height: h, rx: 2, fill: s.color }));
+      root.appendChild(text(x + barW * 0.41, padT + plotH - h - 4, val, 'value-label', { 'text-anchor': 'middle' }));
+    });
+    root.appendChild(text(gx + groupW / 2, H - 6, cat, 'bar-label', { 'text-anchor': 'middle' }));
+  });
+  container.appendChild(root);
+}
+
+function comboBarLine(containerId, categories, barValues, lineValues, barColor, lineColor, barName, lineName) {
+  const container = document.getElementById(containerId);
+  legend(container, [[barName, barColor], [lineName, lineColor]]);
+  const W = 460, H = 220, padL = 40, padR = 34, padT = 14, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxBar = Math.max(...barValues) * 1.15;
+  const maxLine = Math.max(...lineValues) * 1.3;
+  const n = categories.length;
+  const slotW = plotW / n;
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}` });
+  for (let g = 0; g <= 3; g++) {
+    const y = padT + plotH - (g / 3) * plotH;
+    root.appendChild(svg('line', { x1: padL, x2: W - padR, y1: y, y2: y, stroke: '#d8d3c4', 'stroke-width': 1 }));
+  }
+  const points = [];
+  categories.forEach((cat, i) => {
+    const x = padL + i * slotW;
+    const barH = (barValues[i] / maxBar) * plotH;
+    root.appendChild(svg('rect', { x: x + slotW * 0.2, y: padT + plotH - barH, width: slotW * 0.6, height: barH, rx: 2, fill: barColor }));
+    const lx = x + slotW / 2;
+    const ly = padT + plotH - (lineValues[i] / maxLine) * plotH;
+    points.push([lx, ly]);
+    root.appendChild(text(x + slotW / 2, H - 6, cat, 'bar-label', { 'text-anchor': 'middle' }));
+  });
+  const path = points.map((p, i) => (i === 0 ? 'M' : 'L') + p[0] + ',' + p[1]).join(' ');
+  root.appendChild(svg('path', { d: path, fill: 'none', stroke: lineColor, 'stroke-width': 2 }));
+  points.forEach(p => root.appendChild(svg('circle', { cx: p[0], cy: p[1], r: 3, fill: lineColor })));
+  container.appendChild(root);
+}
+
+function donut(containerId, labels, values, colors) {
+  const container = document.getElementById(containerId);
+  legend(container, labels.map((l, i) => [l, colors[i % colors.length]]));
+  const size = 200, r = 70, cx = size / 2, cy = size / 2, innerR = 40;
+  const total = values.reduce((a, b) => a + b, 0);
+  let angle = -Math.PI / 2;
+  const root = svg('svg', { viewBox: `0 0 ${size} ${size}` });
+  values.forEach((v, i) => {
+    const frac = v / total;
+    const nextAngle = angle + frac * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+    const x2 = cx + r * Math.cos(nextAngle), y2 = cy + r * Math.sin(nextAngle);
+    const ix1 = cx + innerR * Math.cos(angle), iy1 = cy + innerR * Math.sin(angle);
+    const ix2 = cx + innerR * Math.cos(nextAngle), iy2 = cy + innerR * Math.sin(nextAngle);
+    const large = frac > 0.5 ? 1 : 0;
+    const d = `M ${ix1} ${iy1} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${ix2} ${iy2} A ${innerR} ${innerR} 0 ${large} 0 ${ix1} ${iy1} Z`;
+    root.appendChild(svg('path', { d, fill: colors[i % colors.length] }));
+    angle = nextAngle;
+  });
+  root.appendChild(text(cx, cy + 4, total, 'value-label', { 'text-anchor': 'middle', style: 'font-size:14px' }));
+  container.appendChild(root);
+}
+
+function stackedHorizontal(containerId, categories, series) {
+  const container = document.getElementById(containerId);
+  legend(container, series.map(s => [s.name, s.color]));
+  const W = 460, rowH = 26, padL = 8, padR = 55, padT = 4;
+  const H = padT + categories.length * rowH + 10;
+  const totals = categories.map((_, i) => series.reduce((sum, s) => sum + s.data[i], 0));
+  const maxVal = Math.max(...totals) * 1.1;
+  const root = svg('svg', { viewBox: `0 0 ${W} ${H}` });
+  categories.forEach((cat, i) => {
+    const y = padT + i * rowH;
+    root.appendChild(text(padL, y + 10, cat, 'bar-label'));
+    let xOff = padL;
+    const plotW = W - padL - padR;
+    series.forEach(s => {
+      const w = (s.data[i] / maxVal) * plotW;
+      root.appendChild(svg('rect', { x: xOff, y: y + 13, width: Math.max(w, 0.5), height: 10, fill: s.color }));
+      xOff += w;
+    });
+    root.appendChild(text(xOff + 4, y + 21, totals[i].toFixed(1), 'value-label'));
+  });
+  container.appendChild(root);
+}
+
+const s = DATA.summary;
+document.getElementById('summary-strip').innerHTML = [
+  [s.total_events, 'Disaster Events'],
+  [Number(s.total_deaths).toLocaleString(), 'Total Deaths'],
+  [Number(s.total_displaced).toLocaleString(), 'People Displaced'],
+  ['৳' + s.total_loss_billion_bdt + 'B', 'Economic Loss'],
+  [s.total_shelters, 'Shelters Tracked'],
+].map(([num, label]) => `<div class="stat"><div class="num">${num}</div><div class="label">${label}</div></div>`).join('');
+
+comboBarLine('yearlyChart',
+  DATA.yearly_trend.map(r => r.year),
+  DATA.yearly_trend.map(r => r.displaced),
+  DATA.yearly_trend.map(r => r.deaths),
+  COLORS.teal, COLORS.rust, 'Displaced', 'Deaths');
+
+groupedBar('typeChart',
+  DATA.by_disaster_type.map(r => r.disaster_type),
+  [
+    { name: 'Events', data: DATA.by_disaster_type.map(r => r.num_events), color: COLORS.ochre },
+    { name: 'Deaths', data: DATA.by_disaster_type.map(r => r.deaths), color: COLORS.rust }
+  ]);
+
+horizontalBar('districtChart',
+  DATA.top_districts_loss.map(r => r.district),
+  DATA.top_districts_loss.map(r => parseFloat(r.loss_million_bdt)),
+  COLORS.teal, { fmt: v => v.toFixed(0) });
+
+horizontalBar('orgChart',
+  DATA.aid_by_org.map(r => r.org_name.length > 24 ? r.org_name.slice(0,22)+'…' : r.org_name),
+  DATA.aid_by_org.map(r => parseFloat(r.cost_million_bdt)),
+  COLORS.sage, { padL: 175, fmt: v => v.toFixed(1) });
+
+donut('resourceChart',
+  DATA.resource_distribution.map(r => r.category),
+  DATA.resource_distribution.map(r => r.num_deliveries),
+  [COLORS.teal, COLORS.rust, COLORS.ochre, COLORS.sage, COLORS.slate, COLORS.extra]);
+
+document.getElementById('shelterList').innerHTML = DATA.shelter_overcapacity.map(r => `
+  <div class="list-row"><span class="name">${r.shelter}</span><span class="pct-badge">${r.pct}%</span></div>
+`).join('');
+
+stackedHorizontal('donationChart',
+  DATA.donations_by_event.map(r => r.event_name.length > 22 ? r.event_name.slice(0,20)+'…' : r.event_name),
+  [
+    { name: 'Cash', data: DATA.donations_by_event.map(r => parseFloat(r.cash_million_bdt)), color: COLORS.teal },
+    { name: 'In-kind', data: DATA.donations_by_event.map(r => parseFloat(r.in_kind_million_bdt)), color: COLORS.ochre }
+  ]);
+</script>
+</body>
+</html>

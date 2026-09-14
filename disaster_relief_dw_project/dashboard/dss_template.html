@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Disaster Relief DSS — District Prioritization</title>
+<style>
+  :root {
+    --ink: #1c2b2a; --paper: #f2efe6; --panel: #ffffff;
+    --teal: #2a6f6b; --teal-deep: #163f3d; --rust: #a8532f; --ochre: #c99a3f;
+    --sage: #7a9b76; --line: #d8d3c4; --muted: #6b6a5f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  header { background: var(--teal-deep); color: #f2efe6; padding: 28px 32px 22px; }
+  header .eyebrow { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #9fc7c2; margin-bottom: 6px; }
+  header h1 { margin: 0 0 4px; font-size: 24px; font-weight: 600; }
+  header p { margin: 0; font-size: 13px; color: #c7d9d6; max-width: 680px; line-height: 1.5; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 24px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; margin-bottom: 18px; }
+  .panel h2 { font-size: 13px; margin: 0 0 12px; color: var(--teal-deep); text-transform: uppercase; letter-spacing: 0.05em; }
+  .weights { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  .weight-item label { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .weight-item .val { font-weight: 700; color: var(--teal-deep); font-variant-numeric: tabular-nums; }
+  .weight-item input[type=range] { width: 100%; accent-color: var(--teal); }
+  .weight-note { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; padding: 8px 10px; background: var(--teal-deep); color: #f2efe6; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  th.num, td.num { text-align: right; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:hover td { background: #f7f5ee; }
+  .rank { font-weight: 700; color: var(--teal-deep); width: 24px; }
+  .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .score-bar-bg { flex: 1; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; min-width: 60px; }
+  .score-bar-fill { height: 100%; border-radius: 4px; }
+  .score-num { font-weight: 700; font-variant-numeric: tabular-nums; width: 32px; text-align: right; }
+  .rationale { font-size: 11px; color: var(--muted); line-height: 1.45; max-width: 260px; }
+  .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 700; margin-right: 4px; }
+  .badge.high { background: #fbe9e2; color: var(--rust); }
+  .badge.med { background: #fbf1dc; color: #8a6a1f; }
+  footer { text-align: center; font-size: 11px; color: var(--muted); padding: 6px 24px 30px; max-width: 1080px; margin: 0 auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap" style="padding:0;">
+    <div class="eyebrow">Disaster Relief Data Warehouse · Decision Support</div>
+    <h1>District Relief Prioritization</h1>
+    <p>Ranks districts by relief priority using four warehouse-derived factors: impact severity, aid coverage gap, shelter overcrowding risk, and baseline vulnerability. Adjust the weights below to see how the ranking responds — this is a transparent, rule-based score, not a black box.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="panel">
+    <h2>Priority Weights</h2>
+    <div class="weights" id="weights"></div>
+    <p class="weight-note">Priority Score = (Impact × w₁) + (Aid Gap × w₂) + (Shelter Risk × w₃) + (Vulnerability × w₄), each factor normalized 0–1 across districts (shelter risk can exceed 1.0 when occupancy exceeds capacity). Recomputed live in your browser as you move the sliders — no server round-trip.</p>
+  </div>
+
+  <div class="panel">
+    <h2>Ranked Districts</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>District</th><th>Division</th>
+          <th class="num">Deaths</th><th class="num">Displaced</th>
+          <th class="num">Aid Received (BDT)</th><th class="num">Shelter Occ.</th>
+          <th>Priority Score</th><th>Why</th>
+        </tr>
+      </thead>
+      <tbody id="rankTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>
+  Scores are computed from the same disaster impact, aid distribution, resource deployment, and vulnerability data used elsewhere in this project. Underlying figures for aid, deployment, and shelter occupancy are simulated for this MSc course project; disaster events and geography are real.
+</footer>
+
+<script>
+const DISTRICTS = __DATA_JSON__;
+
+const WEIGHT_DEFS = [
+  { key: 'impact_score', label: 'Impact Severity', color: '#a8532f', default: 40 },
+  { key: 'aid_gap_score', label: 'Aid Coverage Gap', color: '#c99a3f', default: 30 },
+  { key: 'shelter_risk_score', label: 'Shelter Overcrowding', color: '#2a6f6b', default: 20 },
+  { key: 'vulnerability_score', label: 'Baseline Vulnerability', color: '#7a9b76', default: 10 },
+];
+
+const weightsContainer = document.getElementById('weights');
+WEIGHT_DEFS.forEach(w => {
+  const div = document.createElement('div');
+  div.className = 'weight-item';
+  div.innerHTML = `
+    <label>${w.label} <span class="val" id="val-${w.key}">${w.default}%</span></label>
+    <input type="range" min="0" max="100" value="${w.default}" id="slider-${w.key}" data-key="${w.key}">
+  `;
+  weightsContainer.appendChild(div);
+});
+
+function currentWeights() {
+  const raw = WEIGHT_DEFS.map(w => parseFloat(document.getElementById(`slider-${w.key}`).value));
+  const sum = raw.reduce((a, b) => a + b, 0) || 1;
+  return WEIGHT_DEFS.reduce((acc, w, i) => { acc[w.key] = raw[i] / sum; return acc; }, {});
+}
+
+function rationale(d, weights) {
+  const parts = [];
+  if (d.impact_score >= 0.6) parts.push(`severe impact (${d.total_deaths} deaths, ${Number(d.total_displaced).toLocaleString()} displaced)`);
+  if (d.aid_gap_score >= 0.6) parts.push('high need relative to aid received so far');
+  if (d.shelter_risk_score > 1.0) parts.push(`shelters over capacity (${d.peak_occupancy_pct}% peak occupancy)`);
+  else if (d.shelter_risk_score >= 0.9) parts.push('shelters near capacity');
+  if (d.vulnerability_score >= 0.8) parts.push('high baseline vulnerability');
+  if (parts.length === 0) parts.push('relatively low need across all factors');
+  return parts.join('; ');
+}
+
+function render() {
+  const weights = currentWeights();
+  WEIGHT_DEFS.forEach(w => {
+    document.getElementById(`val-${w.key}`).textContent = Math.round(weights[w.key] * 100) + '%';
+  });
+
+  const scored = DISTRICTS.map(d => {
+    const score = WEIGHT_DEFS.reduce((sum, w) => sum + parseFloat(d[w.key]) * weights[w.key], 0);
+    return { ...d, priority: score };
+  }).sort((a, b) => b.priority - a.priority);
+
+  const maxScore = Math.max(...scored.map(d => d.priority)) || 1;
+
+  document.getElementById('rankTable').innerHTML = scored.map((d, i) => {
+    const pct = Math.min(100, (d.priority / maxScore) * 100);
+    const color = i < 3 ? '#a8532f' : i < 8 ? '#c99a3f' : '#2a6f6b';
+    const badges = [];
+    if (d.shelter_risk_score > 1.0) badges.push('<span class="badge high">Over capacity</span>');
+    if (d.aid_gap_score >= 0.7) badges.push('<span class="badge med">Aid gap</span>');
+    return `
+      <tr>
+        <td class="rank">${i + 1}</td>
+        <td>${d.district}</td>
+        <td>${d.division}</td>
+        <td class="num">${d.total_deaths}</td>
+        <td class="num">${Number(d.total_displaced).toLocaleString()}</td>
+        <td class="num">${Number(d.total_aid_delivered).toLocaleString()}</td>
+        <td class="num">${d.peak_occupancy_pct}%</td>
+        <td>
+          <div class="score-bar-wrap">
+            <div class="score-bar-bg"><div class="score-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            <div class="score-num">${d.priority.toFixed(2)}</div>
+          </div>
+          ${badges.join('')}
+        </td>
+        <td class="rationale">${rationale(d, weights)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+WEIGHT_DEFS.forEach(w => {
+  document.getElementById(`slider-${w.key}`).addEventListener('input', render);
+});
+render();
+</script>
+</body>
+</html>
